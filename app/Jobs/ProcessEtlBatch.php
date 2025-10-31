@@ -35,9 +35,19 @@ class ProcessEtlBatch implements ShouldQueue
             
             Log::info("ETL Started for Batch #{$this->batchId}");
             
-            // TODO: Step 1 - Extract & Parse Shopee file
-            // TODO: Step 2 - Extract & Parse TikTok file
+            // Step 1: Extract & Parse Shopee file
+            if ($batch->shopee_file) {
+                $this->processShopeeFile($batch);
+            }
+            
+            // Step 2: Extract & Parse TikTok file
+            if ($batch->tiktok_file) {
+                $this->processTiktokFile($batch);
+            }
+            
             // TODO: Step 3 - Reconcile (gabungkan data)
+            $reconciliationService = new \App\Services\ReconciliationService();
+            $reconciliationService->reconcile($batch);
             
             // Update status jadi 'completed'
             $batch->update([
@@ -49,14 +59,49 @@ class ProcessEtlBatch implements ShouldQueue
             
         } catch (Exception $e) {
             Log::error("ETL Failed for Batch #{$this->batchId}: " . $e->getMessage());
-            
-            // Update status jadi 'failed'
+    
             EtlBatch::where('id', $this->batchId)->update([
                 'status' => 'failed',
                 'error_message' => $e->getMessage(),
             ]);
             
-            throw $e; // Re-throw agar masuk failed_jobs table
+            throw $e;
         }
+    }
+
+    /**
+     * Process Shopee file
+     */
+    private function processShopeeFile(EtlBatch $batch): void
+    {
+        $parser = new \App\Services\ShopeeParserService();
+        $filePath = storage_path('app/uploads/' . $batch->shopee_file);
+        
+        $records = $parser->parse($filePath);
+        
+        // Bulk insert ke raw_shopee
+        foreach ($records as $record) {
+            $batch->rawShopee()->create($record);
+        }
+        
+        Log::info("Shopee: Inserted " . count($records) . " records");
+    }
+
+    /**
+     * Process TikTok file
+     */
+    private function processTiktokFile(EtlBatch $batch): void
+    {
+        $parser = new \App\Services\TiktokParserService();
+        $filePath = storage_path('app/uploads/' . $batch->tiktok_file);
+        
+        $records = $parser->parse($filePath);
+        
+        // Bulk insert ke raw_tiktok
+        foreach ($records as $record) {
+            $batch->rawTiktok()->create($record);
+        }
+        
+        Log::info("TikTok: Inserted " . count($records) . " records");
     }
 }

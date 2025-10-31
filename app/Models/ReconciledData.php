@@ -30,4 +30,5 @@ class ReconciledData extends Model
     {
         return $this->belongsTo(EtlBatch::class, 'batch_id');
     }
+    
 }

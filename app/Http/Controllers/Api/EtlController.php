@@ -22,8 +22,8 @@ class EtlController extends Controller
         // Validasi input
         $validator = Validator::make($request->all(), [
             'batch_name' => 'required|string|max:255',
-            'shopee_file' => 'required|file|mimes:csv,xlsx,xls|max:10240', // Max 10MB
-            'tiktok_file' => 'required|file|mimes:csv,xlsx,xls|max:10240',
+            'shopee_file' => 'required|file|extensions:csv,xlsx,xls|max:10240', // Max 10MB
+            'tiktok_file' => 'required|file|extensions:csv,xlsx,xls|max:10240',
         ]);
 
         if ($validator->fails()) {

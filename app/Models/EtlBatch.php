@@ -34,7 +34,7 @@ class EtlBatch extends Model
     // Relasi: 1 batch has many raw_shopee records
     public function rawShopee(): HasMany
     {
-    return $this->hasMany(RawShopee::class, 'batch_id');
+        return $this->hasMany(RawShopee::class, 'batch_id');
     }
 
     // Relasi: 1 batch has many raw_tiktok records

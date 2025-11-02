@@ -24,26 +24,46 @@ class ReconciliationService
         // Ambil semua unique product names dari kedua sumber
         $allProductNames = $shopeeByProduct->keys()
             ->merge($tiktokByProduct->keys())
-            ->unique();
+            ->unique()
+            ->filter(function($productName) {
+                // Filter out empty product names
+                return !empty(trim($productName));
+            });
         
         Log::info("Reconciliation: Found " . $allProductNames->count() . " unique products");
         
+        if ($allProductNames->isEmpty()) {
+            Log::warning("Reconciliation: No valid product names found. Skipping reconciliation.");
+            return;
+        }
+        
+        // Prepare data untuk bulk insert
+        $reconciledData = [];
+        $now = now();
+        $skippedEmpty = 0;
+        
         foreach ($allProductNames as $productName) {
+            // Skip jika product_name masih kosong setelah trim
+            if (empty(trim($productName))) {
+                $skippedEmpty++;
+                continue;
+            }
+            
             $shopeeData = $shopeeByProduct->get($productName);
             $tiktokData = $tiktokByProduct->get($productName);
             
             // Hitung total dari Shopee
             $shopeeQty = $shopeeData ? $shopeeData->sum('quantity') : 0;
             $shopeeRevenue = $shopeeData ? $shopeeData->sum('total') : 0;
-            $shopeeOrderIds = $shopeeData ? $shopeeData->pluck('order_id')->implode(',') : null;
+            $shopeeOrderIds = $shopeeData ? $shopeeData->pluck('order_id')->filter()->implode(',') : null;
             
             // Hitung total dari TikTok
             $tiktokQty = $tiktokData ? $tiktokData->sum('product_sold') : 0;
             $tiktokRevenue = $tiktokData ? $tiktokData->sum('revenue') : 0;
-            $tiktokLiveIds = $tiktokData ? $tiktokData->pluck('live_id')->unique()->implode(',') : null;
+            $tiktokLiveIds = $tiktokData ? $tiktokData->pluck('live_id')->unique()->filter()->implode(',') : null;
             
-            // Simpan ke reconciled_data
-            ReconciledData::create([
+            // Prepare data untuk bulk insert
+            $reconciledData[] = [
                 'batch_id' => $batch->id,
                 'product_name' => $productName,
                 'total_quantity' => $shopeeQty + $tiktokQty,
@@ -54,9 +74,28 @@ class ReconciliationService
                 'tiktok_quantity' => $tiktokQty > 0 ? $tiktokQty : null,
                 'shopee_revenue' => $shopeeRevenue > 0 ? $shopeeRevenue : null,
                 'tiktok_revenue' => $tiktokRevenue > 0 ? $tiktokRevenue : null,
-            ]);
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
         }
         
-        Log::info("Reconciliation: Created " . $allProductNames->count() . " reconciled records");
+        if ($skippedEmpty > 0) {
+            Log::warning("Reconciliation: Skipped {$skippedEmpty} records with empty product names");
+        }
+        
+        // Bulk insert dengan chunk untuk menghindari memory issue
+        if (!empty($reconciledData)) {
+            $chunks = array_chunk($reconciledData, 500);
+            $totalInserted = 0;
+            
+            foreach ($chunks as $chunk) {
+                ReconciledData::insert($chunk);
+                $totalInserted += count($chunk);
+            }
+            
+            Log::info("Reconciliation: Bulk inserted {$totalInserted} reconciled records");
+        } else {
+            Log::warning("Reconciliation: No reconciled data to insert");
+        }
     }
 }

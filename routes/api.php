@@ -21,6 +21,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 Route::prefix('etl')->group(function () {
     Route::post('/upload', [EtlController::class, 'upload']);
+    Route::get('/batches', [EtlController::class, 'getBatches']); // BARU
+    Route::get('/stats', [EtlController::class, 'getStats']); // BARU
     Route::get('/batch/{id}', [EtlController::class, 'getBatch']);
     Route::get('/batch/{id}/results', [EtlController::class, 'getResults']);
 });

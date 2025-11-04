@@ -128,4 +128,57 @@ class EtlController extends Controller
             ]
         ]);
     }
+
+        /**
+     * Get all batches (with pagination)
+     * 
+     * GET /api/etl/batches
+     */
+    public function getBatches(Request $request)
+    {
+        $perPage = $request->get('per_page', 15);
+        
+        $batches = EtlBatch::with('user')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => $batches->items(),
+            'pagination' => [
+                'current_page' => $batches->currentPage(),
+                'last_page' => $batches->lastPage(),
+                'per_page' => $batches->perPage(),
+                'total' => $batches->total(),
+            ]
+        ]);
+    }
+
+    /**
+     * Get dashboard statistics
+     * 
+     * GET /api/etl/stats
+     */
+    public function getStats()
+    {
+        $totalBatches = EtlBatch::count();
+        $completedBatches = EtlBatch::where('status', 'completed')->count();
+        $failedBatches = EtlBatch::where('status', 'failed')->count();
+        $processingBatches = EtlBatch::whereIn('status', ['pending', 'processing'])->count();
+        
+        $totalProducts = \App\Models\ReconciledData::distinct('product_name')->count();
+        $totalRevenue = \App\Models\ReconciledData::sum('total_revenue');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total_batches' => $totalBatches,
+                'completed_batches' => $completedBatches,
+                'failed_batches' => $failedBatches,
+                'processing_batches' => $processingBatches,
+                'total_products' => $totalProducts,
+                'total_revenue' => $totalRevenue,
+            ]
+        ]);
+    }
 }

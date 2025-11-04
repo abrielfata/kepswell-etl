@@ -1,7 +1,7 @@
 services:
   - type: web
     name: kepswell-etl-api
-    env: php
+    runtime: php
     buildCommand: |
       composer install --no-dev --optimize-autoloader
       php artisan config:cache
@@ -25,6 +25,6 @@ services:
         value: database
   - type: worker
     name: kepswell-etl-queue-worker
-    env: php
+    runtime: php
     buildCommand: composer install --no-dev --optimize-autoloader
     startCommand: php artisan queue:work --tries=3 --timeout=300

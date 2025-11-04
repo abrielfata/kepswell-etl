@@ -1,11 +1,19 @@
 services:
+  # 1. Database PostgreSQL Gratis
+  - type: psql
+    name: kepswell-db
+    plan: free 
+    databaseName: kepswell_db
+    user: kepswell_user
+
+  # 2. Web Service (Laravel) Gratis
   - type: web
     name: kepswell-etl-api
-    runtime: php
+    env: docker
+    dockerfilePath: ./Dockerfile
     plan: free
     buildCommand: |
       composer install --no-dev --optimize-autoloader
-      php artisan storage:link || true
       php artisan config:cache
       php artisan route:cache
       php artisan view:cache
@@ -13,25 +21,89 @@ services:
       php artisan migrate --force
       php artisan serve --host=0.0.0.0 --port=$PORT
     envVars:
+      - key: APP_NAME
+        value: Kepswell ETL
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
         value: false
-      - key: APP_URL
-        value: https://kepswell-etl-api.onrender.com
       - key: APP_KEY
-        generateValue: true
+        generateValue: true 
+      - key: LOG_CHANNEL
+        value: stack
       - key: QUEUE_CONNECTION
-        value: sync
+        value: database # Sesuai rencana kita
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
-        value: pgsql
+        fromService:
+          type: psql
+          name: kepswell-db
+          property: host
       - key: DB_PORT
-        value: 5432
+        fromService:
+          type: psql
+          name: kepswell-db
+          property: port
       - key: DB_DATABASE
-        value: kepswell_etl
+        fromService:
+          type: psql
+          name: kepswell-db
+          property: database
       - key: DB_USERNAME
-        value: postgres
+        fromService:
+          type: psql
+          name: kepswell-db
+          property: user
       - key: DB_PASSWORD
-        value: 2252
+        fromService:
+          type: psql
+          name: kepswell-db
+          property: password
+
+  # 3. Worker ETL Gratis
+  - type: worker
+    name: kepswell-etl-queue-worker
+    env: docker
+    dockerfilePath: ./Dockerfile.worker
+    plan: free
+    buildCommand: composer install --no-dev --optimize-autoloader
+    startCommand: php artisan queue:work --tries=3 --timeout:300
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        generateValue: true
+      - key: LOG_CHANNEL
+        value: stack
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromService:
+          type: psql
+          name: kepswell-db
+          property: host
+      - key: DB_PORT
+        fromService:
+          type: psql
+          name: kepswell-db
+          property: port
+      - key: DB_DATABASE
+        fromService:
+          type: psql
+          name: kepswell-db
+          property: database
+      - key: DB_USERNAME
+        fromService:
+          type: psql
+          name: kepswell-db
+          property: user
+      - key: DB_PASSWORD
+        fromService:
+          type: psql
+          name: kepswell-db
+          property: password

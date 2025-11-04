@@ -1,90 +1,37 @@
 services:
-  # Web Service (API)
   - type: web
     name: kepswell-etl-api
-    env: docker
-    dockerfilePath: ./Dockerfile
+    runtime: php
+    plan: free
+    buildCommand: |
+      composer install --no-dev --optimize-autoloader
+      php artisan storage:link || true
+      php artisan config:cache
+      php artisan route:cache
+      php artisan view:cache
+    startCommand: |
+      php artisan migrate --force
+      php artisan serve --host=0.0.0.0 --port=$PORT
     envVars:
-      - key: APP_NAME
-        value: Kepswell ETL
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
         value: false
-      - key: APP_KEY
-        generateValue: true
       - key: APP_URL
         value: https://kepswell-etl-api.onrender.com
-      - key: DB_CONNECTION
-        value: pgsql
-      - key: DB_HOST
-        fromDatabase:
-          name: kepswell-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: kepswell-db
-          property: port
-      - key: DB_DATABASE
-        fromDatabase:
-          name: kepswell-db
-          property: database
-      - key: DB_USERNAME
-        fromDatabase:
-          name: kepswell-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: kepswell-db
-          property: password
-      - key: QUEUE_CONNECTION
-        value: database
-      - key: SESSION_DRIVER
-        value: database
-      - key: CACHE_DRIVER
-        value: file
-
-  # Background Worker (Queue)
-  - type: worker
-    name: kepswell-etl-worker
-    env: docker
-    dockerfilePath: ./Dockerfile.worker
-    envVars:
-      - key: APP_NAME
-        value: Kepswell ETL Worker
-      - key: APP_ENV
-        value: production
-      - key: APP_DEBUG
-        value: false
       - key: APP_KEY
-        sync: false
+        generateValue: true
+      - key: QUEUE_CONNECTION
+        value: sync
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
-        fromDatabase:
-          name: kepswell-db
-          property: host
+        value: pgsql
       - key: DB_PORT
-        fromDatabase:
-          name: kepswell-db
-          property: port
+        value: 5432
       - key: DB_DATABASE
-        fromDatabase:
-          name: kepswell-db
-          property: database
+        value: kepswell_etl
       - key: DB_USERNAME
-        fromDatabase:
-          name: kepswell-db
-          property: user
+        value: postgres
       - key: DB_PASSWORD
-        fromDatabase:
-          name: kepswell-db
-          property: password
-      - key: QUEUE_CONNECTION
-        value: database
-
-# Database
-databases:
-  - name: kepswell-db
-    databaseName: kepswell_db
-    user: kepswell_user
+        value: 2252
